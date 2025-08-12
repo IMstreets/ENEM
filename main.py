@@ -19,6 +19,7 @@ print("""Qual a area que deseja imprimir?
 area = input("Diga qual a area que deseja: ").upper().strip()
 
 if area == "MT" or "CN" or "LC" or "CH":
+    pass
 
 
 

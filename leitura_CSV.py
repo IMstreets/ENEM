@@ -22,8 +22,8 @@ if not número.empty:
     
     gabarito = número["TX_GABARITO"].values[0]
     questao = número["CO_POSICAO"].values[0]
-    print("O gabarito da questão {} é letra {}".format(questao, gabarito))
-    print(materia)
+    # print("O gabarito da questão {} é letra {}".format(questao, gabarito))
+    # print(materia)
 
 else:
     print("Nenhuma linha encontrada")
