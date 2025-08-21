@@ -1,66 +1,162 @@
-#PAREI NA PARTE DE FAZER UM FOR COM O NUMERO DE QUESTÕES QUE O USUÁRIO QUER IMPLEMENTAR
-
-
+import streamlit as st
+import pandas as pd
+from docx import Document
+from docx.shared import Inches
 import os
 import json
-import leitura_CSV as microdados
+import requests
+from io import BytesIO
+import re
+
+st.title("Gerador de Compilado de Questões ENEM")
+
+# Entradas
+ano = st.selectbox(
+    "Ano da prova",
+    (
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021",
+        "2022",
+        "2023",
+    ),
+)
+materia = st.selectbox(
+    "Matéria",
+    [
+        "MT - Matemática",
+        "CN - Ciências da Natureza",
+        "CH - Ciências Humanas",
+        "LC - Linguagens",
+    ],
+)
+posicoes = st.text_input(
+    "Número das questões (separadas por vírgula)", placeholder="Ex: 109,110"
+)
+
+# Caminhos
+pasta_csv = r"base-de-dados-CSV"
+base_json = os.path.join(r"enem-api\public")
+
+if st.button("Gerar DOCX"):
+    arquivo_csv = os.path.join(pasta_csv, f"ITENS_PROVA_{ano}.csv")
+
+    if not os.path.exists(arquivo_csv):
+        st.error(f"Arquivo {arquivo_csv} não encontrado!")
+    else:
+        df = pd.read_csv(arquivo_csv, sep=";", encoding="latin1")
+        posicoes_lista = [
+            int(p.strip()) for p in posicoes.split(",") if p.strip().isdigit()
+        ]
+
+        # Se a lista estiver vazia, pegar todas as posições da matéria
+        if not posicoes_lista:
+            df_filtrado = df[df["SG_AREA"] == materia[:2]]  # filtra pela matéria
+            posicoes_lista = df_filtrado["CO_POSICAO"].unique().tolist()
+
+        # Agora você pode seguir para gerar o DOCX
+
+        # Filtrar por matéria e posição
+        
+
+        filtro = df[
+            (df["SG_AREA"] == materia[:2]) & (df["CO_POSICAO"].isin(posicoes_lista))
+        ].drop_duplicates(subset=["CO_POSICAO"])
+
+        if filtro.empty:
+            st.warning("Nenhuma questão encontrada.")
+        else:
+            doc = Document()
+
+            for _, linha in filtro.iterrows():
+                questao_num = linha["CO_POSICAO"]
+                contagem = 1
+                if linha["CO_HABILIDADE"] != "":
+                    habilidade = int(linha["CO_HABILIDADE"])
+
+                caminho_json = os.path.join(
+                    base_json, str(ano), "questions", str(questao_num), "details.json"
+                )
+
+                if not os.path.exists(caminho_json):
+                    st.warning(f"JSON não encontrado: {caminho_json}")
+                    continue
+
+                with open(caminho_json, "r", encoding="utf-8") as f:
+                    dados = json.load(f)
+
+                # Título e enunciado
+                doc.add_heading(
+                    f"Questão {questao_num} - ENEM {ano} - H{habilidade:.2f}", level=2
+                )
+
+                if dados.get("context"):
+                    # Regex para pegar imagens em markdown ![](url)
+                    pattern = r'!\[[^\]]*\]\(([^)]+)\)'
+                    partes = re.split(pattern, dados["context"])
+
+                    for i, parte in enumerate(partes):
+                        if i % 2 == 0:
+                            # Parte de texto
+                            if parte.strip():
+                                doc.add_paragraph(parte.strip())
+                else:
+                    # Parte é uma URL de imagem
+                    img_url = parte.strip()
+                    try:
+                        resp = requests.get(img_url)
+                        resp.raise_for_status()
+                        img_data = BytesIO(resp.content)
+                        doc.add_picture(img_data, width=Inches(5))
+                    except Exception as e:
+                        st.warning(f"Erro ao baixar imagem do enunciado: {img_url} - {e}")
+
+                # Imagens
+                for img_url in dados.get("files", []):
+                    try:
+                        resp = requests.get(img_url)
+                        resp.raise_for_status()
+                        img_data = BytesIO(resp.content)
+                        doc.add_picture(img_data, width=Inches(5))
+                    except Exception as e:
+                        st.warning(f"Erro ao baixar imagem: {img_url} - {e}")
+
+                # Alternativas
+                if dados.get("alternativesIntroduction"):
+                    doc.add_paragraph(dados["alternativesIntroduction"])
+
+                for alt in dados.get("alternatives", []):
+                    doc.add_paragraph(f"{alt['letter']}) {alt['text']}")
+
+                doc.add_paragraph("")  # espaço entre questões
+            contagem += 1
+
+            # Salvar e oferecer download
+            nome_arquivo = f"prova_{ano}_{materia}.docx"
+            doc.save(nome_arquivo)
+
+            with open(nome_arquivo, "rb") as f:
+                st.download_button(
+                    label="📥 Baixar DOCX",
+                    data=f,
+                    file_name=nome_arquivo,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
 
 
-ano = int(input("Qual o ano de execução da prova? "))
-
-print("""Qual a area que deseja imprimir?
-      MT para Matemática
-      CN para Ciências da Natureza
-      LC para linguagens e suas comunicações
-      CH para Ciências Humanas
-      """)
+##############################
 
 
-area = input("Diga qual a area que deseja: ").upper().strip()
+####### adicionar filtro de dificuldade
 
-if area == "MT" or "CN" or "LC" or "CH":
-    pass
-
-
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-def fetch_question_details(ano, numero_questao):
-    caminho_arquivo = os.path.join(
-        BASE_DIR, "enem-api", "public",
-        str(ano), "questions", str(numero_questao), "details.json"
-    )
-    
-    try:
-        with open(caminho_arquivo, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-            return dados
-    except FileNotFoundError:
-        print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
-        exit()
-    except json.JSONDecodeError as e:
-        print(f"❌ Erro ao decodificar JSON em {caminho_arquivo}: {e}")
-        exit()
-
-# Teste
-
-detalhes = fetch_question_details(ano, int(microdados.questao))
-
-# Aqui começa o print da questão
-if detalhes["context"]:
-    print(detalhes["context"])
-    print("\n")
-
-if detalhes["files"]:
-    print(detalhes["files"])
-    print("\n")
-
-if detalhes["alternativesIntroduction"]:
-    print(detalhes["alternativesIntroduction"])
-
-print("\n{}) {}\n".format(detalhes["alternatives"][0]["letter"],detalhes["alternatives"][0]["text"]))
-print("{}) {}\n".format(detalhes["alternatives"][1]["letter"],detalhes["alternatives"][1]["text"]))
-print("{}) {}\n".format(detalhes["alternatives"][2]["letter"],detalhes["alternatives"][2]["text"]))
-print("{}) {}\n".format(detalhes["alternatives"][3]["letter"],detalhes["alternatives"][3]["text"]))
-print("{}) {}\n".format(detalhes["alternatives"][4]["letter"],detalhes["alternatives"][4]["text"]))
-
+# adicionar filtros para habilidades
