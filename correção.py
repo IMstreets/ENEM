@@ -21,11 +21,17 @@ for ano in lista_ano:
             # Retorna como string com 2 casas decimais, usando vírgula
             return "{:.2f}".format(nota)
         except (ValueError, TypeError):
-            print(f"[ERRO] Ano {ano} | Linha {i} | Valor inválido: {valor}")
+            print(f"[ERRO] Ano {ano} | | Valor inválido: {valor}")
             # mantém o valor original
-            df.at[i, "NU_PARAM_B"] = valor
-    # Aplica a função a toda a coluna
-    df["NU_PARAM_B"] = df["NU_PARAM_B"].apply(ajustar_nota)
+            df.at["CO_POSICAO", "NU_PARAM_B"] = valor
+    
+
+    #Pega apenas as colunas onde a prova é do caderno azul
+    df = df[df["TX_COR"] == "AZUL"]
+
+    # Aplica a função AJUSTAR NOTA a toda a coluna (descomente a linha abaixo caso precise)
+    # df["NU_PARAM_B"] = df["NU_PARAM_B"].apply(ajustar_nota)
+
 
     # Salva o CSV sobrescrevendo o original
     df.to_csv(arquivo_csv, sep=";", index=False, encoding="latin1")
@@ -33,4 +39,5 @@ for ano in lista_ano:
     print(f"Arquivo {ano} atualizado com sucesso!")
 
 # Exibe última base processada
-print(df[["CO_POSICAO", "NU_PARAM_B"]])
+print(df[["CO_POSICAO", "NU_PARAM_B","TX_COR"]])
+

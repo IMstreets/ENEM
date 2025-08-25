@@ -44,6 +44,9 @@ posicoes = st.text_input(
     "Número das questões (separadas por vírgula)", placeholder="Ex: 109,110"
 )
 
+dificuldade_minima = st.slider("Dificuldade Mínima (Coloque 0 para a menor dificuldade possível)",0, 10000, 300)
+dificuldade_maxima = st.slider("Dificuldade Máxima",0, 10000, 1000)
+
 # Caminhos
 pasta_csv = r"base-de-dados-CSV"
 base_json = os.path.join(r"enem-api\public")
@@ -82,7 +85,7 @@ if st.button("Gerar DOCX"):
                 questao_num = linha["CO_POSICAO"]
                 contagem = 1
                 if linha["CO_HABILIDADE"] != "":
-                    habilidade = int(linha["CO_HABILIDADE"])
+                    habilidade = float(linha["CO_HABILIDADE"])
 
                 caminho_json = os.path.join(
                     base_json, str(ano), "questions", str(questao_num), "details.json"
