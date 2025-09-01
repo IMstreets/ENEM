@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Inches, Pt, RGBColor, Cm
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement, ns
 import os
 import json
 import requests
@@ -41,11 +43,11 @@ materia = st.selectbox(
     ],
 )
 posicoes = st.text_input(
-    "Número das questões (separadas por vírgula)", placeholder="Ex: 109,110"
+    "Número das questões (separadas por espaço)", placeholder="Ex: 109,110"
 )
 
-dificuldade_minima = st.slider("Dificuldade Mínima (Coloque 0 para a menor dificuldade possível)",0, 10000, 300)
-dificuldade_maxima = st.slider("Dificuldade Máxima",0, 10000, 1000)
+dificuldade_minima = st.slider("Dificuldade Mínima (Coloque 0 para a menor dificuldade possível)",-10000, 10000, 300)
+dificuldade_maxima = st.slider("Dificuldade Máxima",-10000, 10000, 1000)
 
 # Caminhos
 pasta_csv = r"base-de-dados-CSV"
@@ -59,7 +61,7 @@ if st.button("Gerar DOCX"):
     else:
         df = pd.read_csv(arquivo_csv, sep=";", encoding="latin1")
         posicoes_lista = [
-            int(p.strip()) for p in posicoes.split(",") if p.strip().isdigit()
+            int(p.strip()) for p in posicoes.split() if p.strip().isdigit()
         ]
 
         # Se a lista estiver vazia, pegar todas as posições da matéria
@@ -67,25 +69,67 @@ if st.button("Gerar DOCX"):
             df_filtrado = df[df["SG_AREA"] == materia[:2]]  # filtra pela matéria
             posicoes_lista = df_filtrado["CO_POSICAO"].unique().tolist()
 
-        # Agora você pode seguir para gerar o DOCX
-
         # Filtrar por matéria e posição
         
 
         filtro = df[
-            (df["SG_AREA"] == materia[:2]) & (df["CO_POSICAO"].isin(posicoes_lista))
-        ].drop_duplicates(subset=["CO_POSICAO"])
+        (df["SG_AREA"] == materia[:2]) & (df["CO_POSICAO"].isin(posicoes_lista))
+                ].drop_duplicates(subset=["CO_POSICAO"])
+
+        # Reordena as linhas de acordo com a ordem fornecida pelo usuário
+        filtro["CO_POSICAO"] = pd.Categorical(filtro["CO_POSICAO"], categories=posicoes_lista, ordered=True)
+        filtro = filtro.sort_values("CO_POSICAO")
+
+        # Cria a numeração sequencial (1, 2, 3, …)
+        filtro = filtro.reset_index(drop=True)
+        filtro["NUMERO_QUESTAO"] = filtro.index + 1
 
         if filtro.empty:
             st.warning("Nenhuma questão encontrada.")
         else:
             doc = Document()
+            
 
-            for _, linha in filtro.iterrows():
+            #Configurações do documento
+            
+            #1 Definição de fonte padrão
+            style = doc.styles["Normal"]
+            font = style.font
+            font.name = "Calibri"
+            font.size = Pt(11)
+
+
+            #Definindo espaçamento e alinhamento justificado para parágrafos
+
+            for style_name in ["Normal", "Heading 1", "Heading 2"]:
+                style = doc.styles[style_name]
+                style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            
+            # ---- CONFIGURAR COLUNAS ----
+
+            #Número de Colunas
+
+            seção = doc.sections[0]
+            sectPr = seção._sectPr
+            seção.top_margin = Cm(1)
+            seção.bottom_margin = Cm(2.5)
+            seção.left_margin = Cm(1)
+            seção.right_margin = Cm(1)
+
+            for child in sectPr.findall(ns.qn("w:cols")):
+                sectPr.remove(child)
+            
+            cols = OxmlElement("w:cols")
+            cols.set(ns.qn("w:num"), "2")
+            cols.set(ns.qn("w:space"), "200")
+            sectPr.append(cols)
+
+            for idx,(_,linha) in enumerate(filtro.iterrows(),start=1):
                 questao_num = linha["CO_POSICAO"]
-                contagem = 1
+                
                 if linha["CO_HABILIDADE"] != "":
                     habilidade = float(linha["CO_HABILIDADE"])
+                nota = linha["NU_PARAM_B"]
 
                 caminho_json = os.path.join(
                     base_json, str(ano), "questions", str(questao_num), "details.json"
@@ -99,10 +143,15 @@ if st.button("Gerar DOCX"):
                     dados = json.load(f)
 
                 # Título e enunciado
-                doc.add_heading(
-                    f"Questão {questao_num} - ENEM {ano} - H{habilidade:.2f}", level=2
-                )
+                par = doc.add_paragraph()
+                run = par.add_run()
+                run.bold = True
+                
 
+                par.add_run(
+                    f"{idx}. ({questao_num} - ENEM {ano}) (H{habilidade:.0f} - {nota})",None).bold = True
+               
+                
                 if dados.get("context"):
                     # Regex para pegar imagens em markdown ![](url)
                     pattern = r'!\[[^\]]*\]\(([^)]+)\)'
@@ -130,7 +179,7 @@ if st.button("Gerar DOCX"):
                         resp = requests.get(img_url)
                         resp.raise_for_status()
                         img_data = BytesIO(resp.content)
-                        doc.add_picture(img_data, width=Inches(5))
+                        doc.add_picture(img_data, width=Cm(2))
                     except Exception as e:
                         st.warning(f"Erro ao baixar imagem: {img_url} - {e}")
 
@@ -140,9 +189,15 @@ if st.button("Gerar DOCX"):
 
                 for alt in dados.get("alternatives", []):
                     doc.add_paragraph(f"{alt['letter']}) {alt['text']}")
+            
+            doc.add_paragraph("Gabarito")
+            doc.add_paragraph("")
 
-                doc.add_paragraph("")  # espaço entre questões
-            contagem += 1
+            for x, (_,linha) in enumerate(filtro.iterrows(), start=1):
+                gabarito = linha["TX_GABARITO"]
+                doc.add_paragraph(f"{x}) {gabarito}", None).add_run().bold = True
+
+
 
             # Salvar e oferecer download
             nome_arquivo = f"prova_{ano}_{materia}.docx"
