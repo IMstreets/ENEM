@@ -4,7 +4,7 @@
     "year": 2016,
     "language": null,
     "discipline": "ciencias-natureza",
-    "context": "O benzeno, um importante solvente para a indústria química, é obtido industrialmente pela destilação do petróleo. Contudo, também pode ser sintetizado pela trimerização do acetileno catalisada por ferro metálico sob altas temperaturas, conforme a equação química:\n![]enem-api\public\2016\questions\50\{56E5E325-DFA5-4983-BF0C-BC0FBD7FACE6}.png\nA energia envolvida nesse processo pode ser calculada indiretamente pela variação de entalpia das reações de combustão das substâncias participantes, nas mesmas condições experimentais:\n![]enem-api\public\2016\questions\50\{6D02A03B-3B21-41B9-8EA9-2AC191564F2A}.png",
+    "context": "O benzeno, um importante solvente para a indústria química, é obtido industrialmente pela destilação do petróleo. Contudo, também pode ser sintetizado pela trimerização do acetileno catalisada por ferro metálico sob altas temperaturas, conforme a equação química:\n ![]enem-api\\public\\2016\\questions\\50\\56E5E325-DFA5-4983-BF0C-BC0FBD7FACE6.png\nA energia envolvida nesse processo pode ser calculada indiretamente pela variação de entalpia das reações de combustão das substâncias participantes, nas mesmas condições experimentais:\n![]enem-api\\public\\2016\\questions\\50\\6D02A03B-3B21-41B9-8EA9-2AC191564F2A.png",
     "files": [],
     "correctAlternative": "B",
     "alternativesIntroduction": "A variação de entalpia do processo de trimerização, em kcal, para a formação de um mol de benzeno é mais próxima de",
