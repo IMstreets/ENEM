@@ -146,7 +146,7 @@ if st.button("Gerar DOCX"):
                 par = doc.add_paragraph()
                 run = par.add_run()
                 run.bold = True
-                
+
 
                 par.add_run(
                     f"{idx}. ({questao_num} - ENEM {ano}) (H{habilidade:.0f} - {nota})",None).bold = True
@@ -200,7 +200,7 @@ if st.button("Gerar DOCX"):
 
 
             # Salvar e oferecer download
-            nome_arquivo = f"prova_{ano}_{materia}.docx"
+            nome_arquivo = f"ENEM {ano} {materia}.docx"
             doc.save(nome_arquivo)
 
             with open(nome_arquivo, "rb") as f:
